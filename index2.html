@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Space Portfolio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Syne:wght@400;700;800&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --ink:#0a0a0f;
+  --star:#ffffff;
+  --accent:#1d0e90;
+  --accent2:#ff6b9d;
+  --accent3:#0a9f77;
+  --dim:rgba(255,255,255,0.12);
+  --glass:rgba(255,255,255,0.05);
+  --glass-border:rgba(255,255,255,0.12);
+}
+html,body{width:100%;height:100%;overflow:hidden;background:#040408;color:#fff;font-family:'Space Grotesk',sans-serif;cursor:none}
+#canvas-bg{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0}
+#cursor{position:fixed;width:12px;height:12px;background:var(--accent);border-radius:50%;pointer-events:none;z-index:9999;transform:translate(-50%,-50%);mix-blend-mode:difference;transition:transform 0.1s ease,width 0.2s,height 0.2s}
+#cursor-trail{position:fixed;width:40px;height:40px;border:1px solid rgba(124,107,255,0.5);border-radius:50%;pointer-events:none;z-index:9998;transform:translate(-50%,-50%);transition:left 0.12s ease,top 0.12s ease,transform 0.2s ease}
+#cursor.hovering{width:48px;height:48px;background:transparent;border:1px solid var(--accent)}
+#app{position:relative;z-index:1;width:100%;height:100%}
+
+/* NAV */
+#nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:28px 48px;display:flex;justify-content:space-between;align-items:center}
+#nav-logo{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;letter-spacing:-0.5px;color:#fff;cursor:pointer}
+#nav-logo span{color:var(--accent)}
+#nav-links{display:flex;gap:36px}
+.nav-link{font-size:12px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.55);cursor:pointer;transition:color 0.3s;position:relative}
+.nav-link::after{content:'';position:absolute;bottom:-4px;left:0;width:0;height:1px;background:var(--accent);transition:width 0.3s}
+.nav-link:hover,.nav-link.active{color:#fff}
+.nav-link:hover::after,.nav-link.active::after{width:100%}
+#nav-status{font-family:'JetBrains Mono',monospace;font-size:11px;color:rgba(255,255,255,0.3);letter-spacing:1px}
+
+/* HOME */
+#scene-home{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;transition:opacity 0.8s cubic-bezier(0.4,0,0.2,1),transform 0.8s cubic-bezier(0.4,0,0.2,1)}
+#scene-home.out{opacity:0;transform:scale(1.08) translateY(-20px);pointer-events:none}
+.hero-content{text-align:center;position:relative;z-index:2}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:3px;color:var(--accent3);margin-bottom:24px;opacity:0;animation:fadeUp 0.8s 0.3s ease forwards}
+.hero-name{font-family:'Syne',sans-serif;font-size:clamp(56px,9vw,120px);font-weight:800;line-height:0.9;letter-spacing:-3px;color:#fff;margin-bottom:20px;overflow:hidden}
+.hero-name-line{display:block;transform:translateY(110%);animation:slideUp 1s cubic-bezier(0.16,1,0.3,1) forwards}
+.hero-name-line:nth-child(1){animation-delay:0.1s}
+.hero-name-line:nth-child(2){animation-delay:0.2s;color:var(--accent)}
+.hero-role{font-size:16px;color:rgba(255,255,255,0.5);margin-bottom:60px;opacity:0;animation:fadeUp 0.8s 0.6s ease forwards;letter-spacing:1px}
+.door-grid{display:flex;gap:24px;margin-top:20px;opacity:0;animation:fadeUp 0.8s 0.8s ease forwards}
+.door-card{width:180px;height:220px;border:1px solid var(--glass-border);background:var(--glass);backdrop-filter:blur(12px);border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;position:relative;overflow:hidden;transition:transform 0.4s cubic-bezier(0.16,1,0.3,1),border-color 0.3s,box-shadow 0.4s}
+.door-card::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 50% 0%,rgba(124,107,255,0.15),transparent 70%);opacity:0;transition:opacity 0.3s}
+.door-card:hover{transform:translateY(-8px) scale(1.02);border-color:var(--accent);box-shadow:0 20px 60px rgba(124,107,255,0.2)}
+.door-card:hover::before{opacity:1}
+.door-icon{font-size:36px;margin-bottom:16px;display:block}
+.door-label{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#fff}
+.door-sub{font-size:11px;color:rgba(255,255,255,0.4);margin-top:6px;letter-spacing:1px}
+.door-arrow{position:absolute;bottom:20px;right:20px;width:28px;height:28px;border:1px solid rgba(255,255,255,0.2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all 0.3s}
+.door-card:hover .door-arrow{border-color:var(--accent);background:var(--accent);color:#fff}
+
+/* ROOMS */
+.room{position:absolute;inset:0;opacity:0;pointer-events:none;transition:opacity 0.7s cubic-bezier(0.4,0,0.2,1),transform 0.7s cubic-bezier(0.4,0,0.2,1);transform:translateY(40px)}
+.room.active{opacity:1;pointer-events:all;transform:translateY(0)}
+
+.back-btn{position:fixed;bottom:40px;left:48px;z-index:200;display:none;align-items:center;gap:10px;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.5);cursor:pointer;transition:color 0.3s;padding:12px 20px;border:1px solid var(--glass-border);border-radius:100px;backdrop-filter:blur(12px);background:var(--glass)}
+.back-btn:hover{color:#fff;border-color:rgba(255,255,255,0.3)}
+.back-btn.show{display:flex}
+
+/* ABOUT */
+#room-about{display:grid;grid-template-columns:1fr 1fr;height:100%;overflow:hidden}
+.about-left{padding:120px 60px 60px 60px;display:flex;flex-direction:column;justify-content:center;position:relative;border-right:1px solid var(--glass-border)}
+.about-section-label{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:3px;color:var(--accent3);margin-bottom:32px}
+.about-big-title{font-family:'Syne',sans-serif;font-size:clamp(40px,5vw,72px);font-weight:800;line-height:1;letter-spacing:-2px;margin-bottom:40px}
+.about-big-title span{color:var(--accent)}
+.about-scroll-hint{font-size:11px;letter-spacing:2px;color:rgba(255,255,255,0.3);margin-top:40px;display:flex;align-items:center;gap:10px}
+.about-scroll-hint::before{content:'';display:block;width:32px;height:1px;background:rgba(255,255,255,0.2)}
+.about-right{position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:120px 60px 60px}
+.identity-card-wrap{position:relative;width:100%;max-width:420px;transform-style:preserve-3d;transition:transform 0.05s linear}
+.identity-card{background:rgba(255,255,255,0.04);border:1px solid var(--glass-border);border-radius:24px;backdrop-filter:blur(24px);overflow:hidden;position:relative}
+.card-header{padding:36px 36px 28px;border-bottom:1px solid var(--glass-border);position:relative}
+.card-avatar{width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:24px;font-weight:800;margin-bottom:20px;color:#fff;overflow:hidden;position:relative}
+.card-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+.card-name{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;line-height:1;margin-bottom:8px}
+.card-role{font-size:13px;color:rgba(255,255,255,0.45);letter-spacing:1px}
+.card-status-dot{width:8px;height:8px;background:#4cff91;border-radius:50%;display:inline-block;margin-right:8px;animation:pulse 2s infinite}
+.card-status{font-size:12px;color:rgba(255,255,255,0.4);display:flex;align-items:center;margin-top:16px}
+.card-body{padding:0 36px 36px;height:320px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.1) transparent}
+.card-body::-webkit-scrollbar{width:3px}
+.card-body::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:3px}
+.card-section{margin-top:28px}
+.card-section-title{font-size:10px;letter-spacing:2px;color:var(--accent);text-transform:uppercase;margin-bottom:12px;font-family:'JetBrains Mono',monospace}
+.card-text{font-size:14px;line-height:1.8;color:rgba(255,255,255,0.6)}
+.card-tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.card-tag{padding:5px 12px;border-radius:100px;font-size:11px;letter-spacing:1px;border:1px solid var(--glass-border);color:rgba(255,255,255,0.55);background:var(--glass)}
+.card-tag.accent{border-color:var(--accent);color:var(--accent)}
+.card-tag a{color:inherit;text-decoration:none}
+.card-tag a:hover{text-decoration:underline}
+.about-content-scroll{overflow-y:auto;flex:1;padding-right:20px;max-height:60vh;scrollbar-width:none}
+.about-content-scroll::-webkit-scrollbar{display:none}
+.about-section-block{margin-bottom:40px;opacity:0;transform:translateX(-20px);transition:opacity 0.6s,transform 0.6s}
+.about-section-block.visible{opacity:1;transform:translateX(0)}
+.section-number{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent3);letter-spacing:2px;margin-bottom:8px}
+.section-heading{font-family:'Syne',sans-serif;font-size:20px;font-weight:700;margin-bottom:12px}
+.section-body{font-size:14px;line-height:1.9;color:rgba(255,255,255,0.55)}
+
+/* GALLERY */
+#room-gallery{padding:100px 48px 40px;overflow:hidden;height:100%}
+.gallery-header{margin-bottom:48px}
+.gallery-title{font-family:'Syne',sans-serif;font-size:clamp(36px,5vw,64px);font-weight:800;letter-spacing:-2px}
+.gallery-title span{color:var(--accent)}
+.gallery-count{font-family:'JetBrains Mono',monospace;font-size:11px;color:rgba(255,255,255,0.3);margin-top:8px;letter-spacing:2px}
+.projects-track{display:flex;gap:24px;height:calc(100vh - 240px);overflow-x:auto;overflow-y:hidden;padding-bottom:20px;scrollbar-width:none;scroll-behavior:smooth;-webkit-overflow-scrolling:touch}
+.projects-track::-webkit-scrollbar{display:none}
+.project-card{min-width:300px;height:100%;border-radius:20px;overflow:hidden;position:relative;cursor:pointer;flex-shrink:0;border:1px solid var(--glass-border);background:rgba(255,255,255,0.03);transition:transform 0.5s cubic-bezier(0.16,1,0.3,1)}
+.project-card:hover{transform:scale(0.98) translateY(-4px)}
+.project-card-inner{width:100%;height:100%;display:flex;flex-direction:column;position:relative;overflow:hidden}
+.project-thumb{height:200px;flex-shrink:0;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+.project-thumb-bg{position:absolute;inset:0;transition:transform 0.6s cubic-bezier(0.16,1,0.3,1)}
+.project-card:hover .project-thumb-bg{transform:scale(1.05)}
+.project-thumb-img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;padding:32px;transition:transform 0.6s cubic-bezier(0.16,1,0.3,1)}
+.project-card:hover .project-thumb-img{transform:scale(1.03)}
+.project-num{position:absolute;top:20px;left:24px;font-family:'JetBrains Mono',monospace;font-size:11px;color:rgba(255,255,255,0.3);letter-spacing:2px;z-index:2}
+.project-emoji{font-size:52px;position:relative;z-index:1;filter:drop-shadow(0 0 24px rgba(124,107,255,0.35));animation:floatEmoji 4s ease-in-out infinite}
+.project-info{padding:20px 24px;border-top:none;background:transparent}
+.project-category{font-size:10px;letter-spacing:2px;color:var(--accent3);margin-bottom:6px;text-transform:uppercase;font-family:'JetBrains Mono',monospace}
+.project-name{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;margin-bottom:4px}
+.project-desc{font-size:12px;color:rgba(255,255,255,0.4);line-height:1.6}
+.project-tags{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.ptag{font-size:10px;padding:3px 10px;border-radius:100px;border:1px solid var(--glass-border);color:rgba(255,255,255,0.4)}
+
+/* PROJECT OVERLAY */
+#project-overlay{position:fixed;inset:0;z-index:500;background:rgba(4,4,8,0.96);backdrop-filter:blur(32px);display:none;opacity:0;transition:opacity 0.5s}
+#project-overlay.open{display:grid;grid-template-columns:55% 45%;opacity:1}
+.overlay-left{padding:72px 52px 40px 52px;display:flex;flex-direction:column;justify-content:flex-start;border-right:1px solid var(--glass-border);overflow-y:auto;scrollbar-width:none}
+.overlay-left::-webkit-scrollbar{display:none}
+.overlay-tag{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:3px;color:var(--accent3);margin-bottom:14px;margin-top:8px}
+.overlay-title{font-family:'Syne',sans-serif;font-size:clamp(28px,3vw,42px);font-weight:800;line-height:1.05;letter-spacing:-1.5px;margin-bottom:16px}
+.overlay-desc{font-size:14px;line-height:1.8;color:rgba(255,255,255,0.55);margin-bottom:28px}
+.overlay-meta{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.meta-item label{font-size:10px;letter-spacing:2px;color:rgba(255,255,255,0.3);text-transform:uppercase;display:block;margin-bottom:3px}
+.meta-item span{font-size:13px;color:#fff}
+.overlay-tech{margin-top:20px;display:flex;gap:6px;flex-wrap:wrap}
+.overlay-link-btn{display:inline-flex;align-items:center;gap:8px;margin-top:16px;padding:9px 18px;border-radius:100px;border:1px solid var(--accent);color:var(--accent);font-size:11px;letter-spacing:1px;text-decoration:none;transition:all 0.3s;font-family:'JetBrains Mono',monospace;background:transparent}
+.overlay-link-btn:hover{background:var(--accent);color:#fff}
+.overlay-close{position:absolute;top:24px;right:24px;width:40px;height:40px;border-radius:50%;border:1px solid var(--glass-border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;transition:all 0.3s;background:var(--glass);z-index:10}
+.overlay-close:hover{background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.3)}
+.overlay-right{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 40px;position:relative;gap:20px;height:100%}
+.overlay-visual{width:100%;height:360px;border-radius:20px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;border:1px solid var(--glass-border);background:rgba(255,255,255,0.04)}
+.overlay-visual-bg{position:absolute;inset:0;opacity:0.6}
+.overlay-visual-img{width:100%;height:100%;object-fit:contain;position:relative;z-index:1;padding:24px}
+.overlay-emoji{position:relative;z-index:1;font-size:88px;filter:drop-shadow(0 0 40px rgba(124,107,255,0.5));animation:floatEmoji 4s ease-in-out infinite}
+
+/* STUDIO */
+#room-studio{padding:100px 48px 40px;height:100%}
+.studio-header{margin-bottom:48px}
+.studio-title{font-family:'Syne',sans-serif;font-size:clamp(36px,5vw,64px);font-weight:800;letter-spacing:-2px}
+.studio-title span{color:var(--accent2)}
+.skills-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;overflow-y:auto;max-height:calc(100vh - 280px);padding-bottom:40px;scrollbar-width:none}
+.skills-grid::-webkit-scrollbar{display:none}
+.skill-bubble{background:var(--glass);border:1px solid var(--glass-border);border-radius:16px;padding:24px;cursor:pointer;transition:transform 0.4s cubic-bezier(0.16,1,0.3,1),border-color 0.3s,box-shadow 0.4s;position:relative;overflow:hidden}
+.skill-bubble::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 50% 0%,var(--grad-color,rgba(124,107,255,0.2)),transparent 70%);opacity:0;transition:opacity 0.3s}
+.skill-bubble:hover{transform:translateY(-6px) scale(1.02);border-color:var(--accent);box-shadow:0 16px 48px rgba(124,107,255,0.15)}
+.skill-bubble:hover::before{opacity:1}
+.skill-icon{font-size:32px;margin-bottom:14px;display:block}
+.skill-name{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;margin-bottom:4px}
+.skill-level{font-size:11px;color:rgba(255,255,255,0.4);letter-spacing:1px;font-family:'JetBrains Mono',monospace}
+.skill-bar{height:2px;background:rgba(255,255,255,0.08);border-radius:2px;margin-top:14px;overflow:hidden}
+.skill-fill{height:100%;background:var(--accent);border-radius:2px;width:0;transition:width 1s cubic-bezier(0.4,0,0.2,1)}
+
+/* STARFIELD */
+#stars-canvas{position:fixed;inset:0;z-index:0;pointer-events:none}
+
+/* ANIMATIONS */
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideUp{from{transform:translateY(110%)}to{transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(76,255,145,0.4)}50%{opacity:0.7;box-shadow:0 0 0 6px rgba(76,255,145,0)}}
+@keyframes floatEmoji{0%,100%{transform:translateY(0px)}50%{transform:translateY(-10px)}}
+.space-float{position:fixed;pointer-events:none;z-index:0;animation:float linear infinite}
+.space-float.moon{font-size:clamp(32px,5vw,72px);opacity:0.15}
+.space-float.planet{font-size:clamp(24px,3vw,48px);opacity:0.1}
+
+/* EDIT BTN */
+#edit-mode-btn{position:fixed;bottom:40px;right:48px;z-index:300;display:flex;align-items:center;gap:10px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.5);cursor:pointer;padding:12px 20px;border:1px solid var(--glass-border);border-radius:100px;backdrop-filter:blur(16px);background:var(--glass);transition:all 0.3s}
+#edit-mode-btn:hover{color:#fff;border-color:rgba(255,255,255,0.3)}
+#edit-mode-btn.on{color:#fff;border-color:var(--accent);background:rgba(124,107,255,0.15);box-shadow:0 0 24px rgba(124,107,255,0.25)}
+#edit-mode-btn .btn-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,0.3);transition:background 0.3s;flex-shrink:0}
+#edit-mode-btn.on .btn-dot{background:var(--accent3);box-shadow:0 0 8px var(--accent3)}
+
+/* EDIT PANEL */
+#edit-panel{position:fixed;top:0;right:0;bottom:0;width:360px;z-index:400;background:rgba(8,8,18,0.97);border-left:1px solid var(--glass-border);backdrop-filter:blur(24px);transform:translateX(100%);transition:transform 0.4s cubic-bezier(0.16,1,0.3,1);display:flex;flex-direction:column;overflow:hidden}
+#edit-panel.open{transform:translateX(0)}
+#edit-panel-header{padding:28px 28px 20px;border-bottom:1px solid var(--glass-border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+#edit-panel-title{font-family:'Syne',sans-serif;font-size:16px;font-weight:700}
+#edit-panel-close{width:36px;height:36px;border-radius:50%;border:1px solid var(--glass-border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;color:rgba(255,255,255,0.5);transition:all 0.2s;background:transparent}
+#edit-panel-close:hover{border-color:rgba(255,255,255,0.3);color:#fff}
+#edit-panel-body{flex:1;overflow-y:auto;padding:20px 28px 40px;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.1) transparent}
+#edit-panel-body::-webkit-scrollbar{width:3px}
+#edit-panel-body::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:3px}
+.ep-section{margin-bottom:28px}
+.ep-section-title{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:2px;color:var(--accent3);text-transform:uppercase;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--glass-border)}
+.ep-field{margin-bottom:14px}
+.ep-label{font-size:11px;color:rgba(255,255,255,0.4);letter-spacing:1px;margin-bottom:6px;display:block}
+.ep-input{width:100%;background:rgba(255,255,255,0.05);border:1px solid var(--glass-border);border-radius:8px;padding:10px 12px;color:#fff;font-family:'Space Grotesk',sans-serif;font-size:13px;line-height:1.6;resize:vertical;transition:border-color 0.2s,background 0.2s;outline:none}
+.ep-input:focus{border-color:var(--accent);background:rgba(124,107,255,0.08)}
+.ep-input.textarea{min-height:80px}
+.ep-save-btn{width:100%;padding:12px;border-radius:10px;background:var(--accent);border:none;color:#fff;font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:600;letter-spacing:1px;cursor:pointer;transition:opacity 0.2s,transform 0.2s;margin-top:8px}
+.ep-save-btn:hover{opacity:0.88;transform:translateY(-1px)}
+.ep-save-btn:active{transform:scale(0.98)}
+.ep-danger-btn{width:100%;padding:10px;border-radius:10px;background:transparent;border:1px solid rgba(255,80,80,0.3);color:rgba(255,80,80,0.6);font-family:'Space Grotesk',sans-serif;font-size:12px;cursor:pointer;transition:all 0.2s;margin-top:8px}
+.ep-danger-btn:hover{background:rgba(255,80,80,0.1);border-color:rgba(255,80,80,0.6);color:rgb(255,80,80)}
+.ep-toast{position:fixed;bottom:100px;right:48px;z-index:500;background:rgba(107,255,216,0.15);border:1px solid var(--accent3);color:var(--accent3);border-radius:100px;padding:10px 20px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:1px;opacity:0;transform:translateY(8px);transition:all 0.3s;pointer-events:none}
+.ep-toast.show{opacity:1;transform:translateY(0)}
+
+/* Image upload area */
+.ep-img-upload{width:100%;height:90px;border:1px dashed rgba(255,255,255,0.2);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;cursor:pointer;transition:border-color 0.2s,background 0.2s;position:relative;overflow:hidden;background:rgba(255,255,255,0.02)}
+.ep-img-upload:hover{border-color:var(--accent);background:rgba(124,107,255,0.05)}
+.ep-img-upload input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.ep-img-upload span{font-size:11px;color:rgba(255,255,255,0.35);letter-spacing:1px;pointer-events:none}
+.ep-img-upload .upload-icon{font-size:20px;pointer-events:none}
+.ep-img-preview{width:100%;height:70px;border-radius:6px;object-fit:cover;margin-top:6px;display:none;border:1px solid var(--glass-border)}
+
+/* Project editor rows */
+.ep-proj-row{background:rgba(255,255,255,0.03);border:1px solid var(--glass-border);border-radius:10px;padding:14px;margin-bottom:10px;cursor:pointer;transition:border-color 0.2s}
+.ep-proj-row:hover{border-color:rgba(255,255,255,0.2)}
+.ep-proj-row-header{display:flex;align-items:center;gap:10px;margin-bottom:0}
+.ep-proj-row-emoji{font-size:20px}
+.ep-proj-row-name{font-size:13px;font-weight:600;flex:1}
+.ep-proj-row-chevron{font-size:11px;color:rgba(255,255,255,0.3);transition:transform 0.2s}
+.ep-proj-row.open .ep-proj-row-chevron{transform:rotate(90deg)}
+.ep-proj-fields{display:none;margin-top:14px;border-top:1px solid var(--glass-border);padding-top:14px}
+.ep-proj-row.open .ep-proj-fields{display:block}
+
+/* Social link rows */
+.ep-link-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.ep-link-row .ep-input{flex:1}
+.ep-link-remove{width:32px;height:32px;border-radius:6px;border:1px solid rgba(255,80,80,0.3);background:transparent;color:rgba(255,80,80,0.6);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.2s}
+.ep-link-remove:hover{background:rgba(255,80,80,0.1);color:rgb(255,80,80)}
+.ep-add-btn{width:100%;padding:8px;border-radius:8px;background:transparent;border:1px dashed rgba(255,255,255,0.15);color:rgba(255,255,255,0.4);font-size:11px;letter-spacing:1px;cursor:pointer;transition:all 0.2s;margin-top:4px}
+.ep-add-btn:hover{border-color:rgba(255,255,255,0.3);color:rgba(255,255,255,0.7)}
+
+@media(max-width:768px){
+  #nav{padding:20px 24px}
+  #room-about{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+  .about-left{padding:80px 24px 24px;border-right:none;border-bottom:1px solid var(--glass-border)}
+  .about-right{padding:24px;min-height:60vh}
+  .door-grid{flex-direction:column;align-items:center}
+  .door-card{width:280px;height:100px;flex-direction:row;gap:20px;justify-content:flex-start;padding:0 24px}
+  .door-icon{font-size:28px;margin:0}
+  #project-overlay.open{grid-template-columns:1fr}
+  .overlay-right{display:none}
+  .overlay-left{padding:80px 32px 40px}
+  #room-gallery{padding:80px 24px 40px}
+  .project-card{min-width:280px}
+  #room-studio{padding:80px 24px 40px}
+  .skills-grid{grid-template-columns:repeat(2,1fr)}
+  #edit-panel{width:100%}
+  #project-overlay.open{grid-template-columns:1fr}
+  .overlay-left{padding:72px 28px 40px;border-right:none}
+  .overlay-right{display:none}
+}
+</style>
+</head>
+<body>
+<canvas id="stars-canvas"></canvas>
+<div id="cursor"></div>
+<div id="cursor-trail"></div>
+
+<!-- EDIT BTN -->
+<div id="edit-mode-btn" onclick="toggleEditMode()"><div class="btn-dot"></div><span id="edit-btn-label">Edit Mode</span></div>
+
+<!-- EDIT PANEL -->
+<div id="edit-panel">
+  <div id="edit-panel-header">
+    <div id="edit-panel-title">✦ Edit Portfolio</div>
+    <div id="edit-panel-close" onclick="toggleEditMode()">✕</div>
+  </div>
+  <div id="edit-panel-body">
+
+    <div class="ep-section">
+      <div class="ep-section-title">Identity</div>
+      <div class="ep-field">
+        <label class="ep-label">Profile Picture</label>
+        <div class="ep-img-upload" id="avatar-upload-zone">
+          <input type="file" accept="image/*" onchange="handleAvatarUpload(event)"/>
+          <span class="upload-icon">🖼️</span>
+          <span>Click to upload photo</span>
+        </div>
+        <img class="ep-img-preview" id="avatar-preview"/>
+      </div>
+      <div class="ep-field"><label class="ep-label">Initials (shown if no photo)</label><input class="ep-input" id="ep-initials" placeholder="YN"/></div>
+      <div class="ep-field"><label class="ep-label">Full Name</label><input class="ep-input" id="ep-name" placeholder="Your Name"/></div>
+      <div class="ep-field"><label class="ep-label">Role / Tagline</label><input class="ep-input" id="ep-role" placeholder="Student Developer · Designer"/></div>
+      <div class="ep-field"><label class="ep-label">Status badge</label><input class="ep-input" id="ep-status" placeholder="Available for opportunities"/></div>
+      <div class="ep-field"><label class="ep-label">Location</label><input class="ep-input" id="ep-location" placeholder="📍 Your City, Country"/></div>
+    </div>
+
+    <div class="ep-section">
+      <div class="ep-section-title">About — Text</div>
+      <div class="ep-field"><label class="ep-label">Big title accent word</label><input class="ep-input" id="ep-bigtitle" placeholder="human"/></div>
+      <div class="ep-field"><label class="ep-label">Intro Heading</label><input class="ep-input" id="ep-intro-h" placeholder="Hey, I'm [Your Name]"/></div>
+      <div class="ep-field"><label class="ep-label">Intro Text</label><textarea class="ep-input textarea" id="ep-intro-t"></textarea></div>
+      <div class="ep-field"><label class="ep-label">Education Heading</label><input class="ep-input" id="ep-edu-h" placeholder="Your University"/></div>
+      <div class="ep-field"><label class="ep-label">Education Text</label><textarea class="ep-input textarea" id="ep-edu-t"></textarea></div>
+      <div class="ep-field"><label class="ep-label">Interests Heading</label><input class="ep-input" id="ep-int-h" placeholder="What drives me"/></div>
+      <div class="ep-field"><label class="ep-label">Interests Text</label><textarea class="ep-input textarea" id="ep-int-t"></textarea></div>
+      <div class="ep-field"><label class="ep-label">Contact Heading</label><input class="ep-input" id="ep-con-h" placeholder="Let's collaborate"/></div>
+      <div class="ep-field"><label class="ep-label">Contact Text</label><textarea class="ep-input textarea" id="ep-con-t"></textarea></div>
+    </div>
+
+    <div class="ep-section">
+      <div class="ep-section-title">Card Details</div>
+      <div class="ep-field"><label class="ep-label">Currently Learning (comma-separated)</label><input class="ep-input" id="ep-learning" placeholder="React, Three.js, TypeScript"/></div>
+      <div class="ep-field"><label class="ep-label">Card Bio</label><textarea class="ep-input textarea" id="ep-bio"></textarea></div>
+
+    </div>
+
+    <div class="ep-section">
+      <div class="ep-section-title">Social Links</div>
+      <div id="social-links-list"></div>
+      <button class="ep-add-btn" onclick="addSocialLink()">+ Add Social Link</button>
+    </div>
+
+    <div class="ep-section">
+      <div class="ep-section-title">Projects</div>
+      <div id="projects-edit-list"></div>
+    </div>
+
+    <button class="ep-save-btn" onclick="applyAndSave()">Save & Apply ✦</button>
+    <button class="ep-danger-btn" onclick="resetAll()">Reset to defaults</button>
+  </div>
+</div>
+<div class="ep-toast" id="ep-toast">Saved ✓</div>
+
+<!-- Floating objects -->
+<div class="space-float moon" style="top:12%;left:8%;animation-duration:8s;animation-delay:-2s">🌙</div>
+<div class="space-float planet" style="top:75%;left:4%;animation-duration:11s;animation-delay:-5s">🪐</div>
+<div class="space-float moon" style="top:30%;right:6%;animation-duration:9s;animation-delay:-1s;font-size:40px">🌑</div>
+<div class="space-float planet" style="top:60%;right:10%;animation-duration:13s;animation-delay:-7s">⭐</div>
+<div class="space-float moon" style="top:85%;right:20%;animation-duration:7s;animation-delay:-3s;font-size:28px">✦</div>
+
+<!-- NAV -->
+<nav id="nav">
+  <div id="nav-logo" onclick="goHome()">
+    <span id="nav-initials">YN</span><span>.</span><span style="color:rgba(255,255,255,0.4);font-weight:300">dev</span>
+  </div>
+  <div id="nav-links">
+    <div class="nav-link" onclick="showRoom('gallery')">Work</div>
+    <div class="nav-link" onclick="showRoom('studio')">Skills</div>
+    <div class="nav-link" onclick="showRoom('about')">About</div>
+  </div>
+  <div id="nav-status"><span style="color:var(--accent3)">✦</span> <span id="nav-status-text">Available for hire</span></div>
+</nav>
+
+<div class="back-btn" id="back-btn" onclick="goHome()">← Back to Space</div>
+
+<div id="app">
+  <!-- HOME -->
+  <div id="scene-home">
+    <div class="hero-content">
+      <div class="hero-eyebrow">✦ Welcome to my universe</div>
+      <div class="hero-name">
+        <span class="hero-name-line" id="hero-first">Your</span>
+        <span class="hero-name-line" id="hero-last" style="color:var(--accent)">Name</span>
+      </div>
+      <div class="hero-role" id="hero-role">Student Developer · Designer · Creator</div>
+      <div class="door-grid">
+        <div class="door-card" onclick="showRoom('gallery')"><span class="door-icon">🌌</span><div class="door-label">Gallery</div><div class="door-sub">My work</div><div class="door-arrow">→</div></div>
+        <div class="door-card" onclick="showRoom('studio')"><span class="door-icon">⚡</span><div class="door-label">Studio</div><div class="door-sub">My skills</div><div class="door-arrow">→</div></div>
+        <div class="door-card" onclick="showRoom('about')"><span class="door-icon">🚀</span><div class="door-label">About</div><div class="door-sub">Who I am</div><div class="door-arrow">→</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ABOUT -->
+  <div class="room" id="room-about">
+    <div class="about-left">
+      <div class="about-section-label">01 — ABOUT ME</div>
+      <div class="about-big-title">The<br/><span id="about-big-word">human</span><br/>behind the code.</div>
+      <div class="about-content-scroll" id="about-scroll">
+        <div class="about-section-block" id="ab0">
+          <div class="section-number">INTRO</div>
+          <div class="section-heading" id="intro-heading">Hey, I'm [Your Name]</div>
+          <div class="section-body" id="intro-body">A student developer with a passion for building things on the web. I love clean code, bold design, and pushing creative boundaries.</div>
+        </div>
+        <div class="about-section-block" id="ab1">
+          <div class="section-number">EDUCATION</div>
+          <div class="section-heading" id="edu-heading">Your University Name</div>
+          <div class="section-body" id="edu-body">Bachelor of Science in Computer Science. Currently in year [X]. Expected graduation: [Year].</div>
+        </div>
+        <div class="about-section-block" id="ab2">
+          <div class="section-number">INTERESTS</div>
+          <div class="section-heading" id="int-heading">What drives me</div>
+          <div class="section-body" id="int-body">I'm fascinated by the intersection of design and technology. When I'm not coding, you can find me exploring generative art, playing games, or stargazing.</div>
+        </div>
+        <div class="about-section-block" id="ab3">
+          <div class="section-number">CONTACT</div>
+          <div class="section-heading" id="con-heading">Let's collaborate</div>
+          <div class="section-body" id="con-body">Open to internships, part-time freelance, and creative collaborations. Don't hesitate to reach out — I reply fast.</div>
+        </div>
+      </div>
+      <div class="about-scroll-hint">Scroll to explore</div>
+    </div>
+    <div class="about-right" id="about-right">
+      <div class="identity-card-wrap" id="card-wrap">
+        <div class="identity-card">
+          <div class="card-header">
+            <div class="card-avatar" id="card-avatar">YN</div>
+            <div class="card-name" id="card-name">Your Name</div>
+            <div class="card-role" id="card-role-el">Student Developer & Designer</div>
+            <div class="card-status"><span class="card-status-dot"></span><span id="card-status-text">Available for opportunities</span></div>
+          </div>
+          <div class="card-body">
+            <div class="card-section">
+              <div class="card-section-title">Currently learning</div>
+              <div class="card-tags" id="learning-tags">
+                <span class="card-tag accent">React</span>
+                <span class="card-tag">Three.js</span>
+                <span class="card-tag">TypeScript</span>
+                <span class="card-tag">Node.js</span>
+                <span class="card-tag">Python</span>
+              </div>
+            </div>
+            <div class="card-section">
+              <div class="card-section-title">Based in</div>
+              <div class="card-text" id="card-location">📍 Your City, Country</div>
+            </div>
+            <div class="card-section">
+              <div class="card-section-title">Find me online</div>
+              <div class="card-tags" id="social-tags"></div>
+            </div>
+            <div class="card-section">
+              <div class="card-section-title">A bit more</div>
+              <div class="card-text" id="card-bio">I believe in building things that are both technically solid and visually beautiful. Every project is a chance to learn something new.</div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GALLERY -->
+  <div class="room" id="room-gallery">
+    <div class="gallery-header">
+      <div class="gallery-title">Selected <span>Work</span></div>
+      <div class="gallery-count" id="proj-count">06 Projects</div>
+    </div>
+    <div class="projects-track" id="projects-track"></div>
+  </div>
+
+  <!-- STUDIO -->
+  <div class="room" id="room-studio">
+    <div class="studio-header"><div class="studio-title">My <span>Skills</span></div></div>
+    <div class="skills-grid" id="skills-grid"></div>
+  </div>
+</div>
+
+<!-- PROJECT OVERLAY -->
+<div id="project-overlay">
+  <div class="overlay-left">
+    <div class="overlay-tag" id="ov-tag"></div>
+    <div class="overlay-title" id="ov-title"></div>
+    <div class="overlay-desc" id="ov-desc"></div>
+    <div class="overlay-meta">
+      <div class="meta-item"><label>Year</label><span id="ov-year"></span></div>
+      <div class="meta-item"><label>Type</label><span id="ov-type"></span></div>
+      <div class="meta-item"><label>Status</label><span id="ov-status"></span></div>
+      <div class="meta-item"><label>Role</label><span id="ov-role"></span></div>
+    </div>
+    <div class="overlay-tech" id="ov-tech"></div>
+    <div id="ov-links"></div>
+  </div>
+  <div class="overlay-right">
+    <div class="overlay-visual" id="ov-visual">
+      <div class="overlay-visual-bg" id="ov-vbg"></div>
+      <img class="overlay-visual-img" id="ov-img" src="" alt="" style="display:none"/>
+      <div class="overlay-emoji" id="ov-emoji"></div>
+    </div>
+  </div>
+  <div class="overlay-close" onclick="closeOverlay()">✕</div>
+</div>
+
+<script>
+// ═══════════════════════════════════════
+// DEFAULT DATA
+// ═══════════════════════════════════════
+const DEFAULT_DATA = {
+  projects:[
+    {id:0,emoji:'🌐',color:'#1d0e90',category:'Web Development',name:'Project Alpha',desc:'A short description of what this project does.',long:'Describe your project in detail — the problem, approach, and what you learned.',year:'2025',type:'Group Project',status:'Live',role:'UI Designer',tech:['HTML','CSS','JS'],bg:'radial-gradient(circle at 30% 30%,rgba(29,14,144,0.3),transparent)',link:'',image:''},
+    {id:1,emoji:'📱',color:'#ff6b9d',category:'Mobile App',name:'Project Beta',desc:'A mobile-first application.',long:'Describe the app. What does it do? Who is it for?',year:'2024',type:'Academic',status:'In Progress',role:'Front End',tech:['React Native','Firebase'],bg:'radial-gradient(circle at 70% 30%,rgba(255,107,157,0.3),transparent)',link:'',image:''},
+    {id:2,emoji:'🤖',color:'#6bffd8',category:'AI / ML',name:'Project Gamma',desc:'Experimenting with AI.',long:'What AI problem did you tackle?',year:'2023',type:'Research',status:'Complete',role:'ML Engineer',tech:['Python','TensorFlow'],bg:'radial-gradient(circle at 50% 70%,rgba(107,255,216,0.3),transparent)',link:'',image:''},
+    {id:3,emoji:'🎮',color:'#ffd96b',category:'Game Dev',name:'Project Delta',desc:'A fun side project.',long:'Describe your game concept and mechanics.',year:'2023',type:'Personal',status:'Complete',role:'Game Developer',tech:['Unity','C#'],bg:'radial-gradient(circle at 20% 60%,rgba(255,217,107,0.3),transparent)',link:'',image:''},
+    {id:4,emoji:'🔒',color:'#ff9d6b',category:'Security',name:'Project Epsilon',desc:'Exploring cybersecurity.',long:'CTF challenges, tools, or security concepts explored.',year:'2024',type:'Academic',status:'Ongoing',role:'Security Researcher',tech:['Python','Linux'],bg:'radial-gradient(circle at 80% 80%,rgba(255,157,107,0.3),transparent)',link:'',image:''},
+    {id:5,emoji:'✨',color:'#c46bff',category:'Design / Art',name:'Project Zeta',desc:'Creative coding experiment.',long:'Generative art, shaders, or creative coding exploration.',year:'2023',type:'Creative',status:'Ongoing',role:'Creative Developer',tech:['p5.js','Canvas API'],bg:'radial-gradient(circle at 40% 20%,rgba(196,107,255,0.3),transparent)',link:'',image:''},
+  ],
+  skills:[
+    {icon:'🐧',name:'Linux (Ubuntu)',level:'Intermediate',pct:65,color:'rgba(241,80,47,0.2)'},
+    {icon:'🔒',name:'Burp Suite',level:'Intermediate',pct:60,color:'rgba(255,157,107,0.2)'},
+    {icon:'🛡️',name:'Cybersecurity',level:'Learning',pct:65,color:'rgba(107,255,216,0.2)'},
+    {icon:'🦠',name:'Malware Analysis',level:'Learning',pct:55,color:'rgba(124,107,255,0.2)'},
+    {icon:'🐉',name:'Hydra',level:'Learning',pct:35,color:'rgba(255,80,80,0.2)'},
+    {icon:'🎯',name:'Bug Bounty Hunting',level:'Learning',pct:30,color:'rgba(255,200,50,0.2)'},
+    {icon:'🐍',name:'Python',level:'Intermediate',pct:65,color:'rgba(53,114,165,0.2)'},
+    {icon:'🌐',name:'HTML',level:'Intermediate',pct:70,color:'rgba(240,101,41,0.2)'},
+    {icon:'🎨',name:'CSS',level:'Intermediate',pct:65,color:'rgba(56,189,248,0.2)'},
+    {icon:'⚡',name:'Arduino IDE',level:'Intermediate',pct:60,color:'rgba(0,188,212,0.2)'},
+    {icon:'🤖',name:'Micro:bit',level:'Intermediate',pct:55,color:'rgba(76,175,80,0.2)'},
+    {icon:'🖌️',name:'UI / Design',level:'Proficient',pct:80,color:'rgba(162,89,255,0.2)'},
+  ],
+  identity:{
+    initials:'YN',name:'Your Name',role:'Student Developer · Designer · Creator',
+    status:'Available for opportunities',location:'📍 Your City, Country',
+    bigtitle:'human',avatar:'',
+    introH:'Hey, I\'m [Your Name]',introT:'A student developer with a passion for building things on the web.',
+    eduH:'Your University Name',eduT:'Bachelor of Science in Computer Science. Currently in year [X].',
+    intH:'What drives me',intT:'I\'m fascinated by the intersection of design and technology.',
+    conH:'Let\'s collaborate',conT:'Open to internships, part-time freelance, and creative collaborations.',
+    learning:'Hydra, Bug Bounty Hunting, Burp Suite, Python',
+    bio:'I believe in building things that are both technically solid and visually beautiful.',
+    funfact:'☕ Runs on coffee and curiosity. My commit messages are 40% poetry.',
+    socials:[{label:'GitHub',url:''},{label:'LinkedIn',url:''},{label:'Twitter/X',url:''}]
+  }
+};
+
+// ═══════════════════════════════════════
+// STORAGE — localStorage persistence
+// ═══════════════════════════════════════
+const STORAGE_KEY = 'portfolio_v2';
+
+function loadData(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return JSON.parse(JSON.stringify(DEFAULT_DATA));
+    const saved = JSON.parse(raw);
+    // Merge with defaults to handle new fields
+    const d = JSON.parse(JSON.stringify(DEFAULT_DATA));
+    if(saved.identity) Object.assign(d.identity, saved.identity);
+    if(saved.projects) d.projects = saved.projects;
+    return d;
+  } catch(e){ return JSON.parse(JSON.stringify(DEFAULT_DATA)); }
+}
+
+function saveData(d){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(d));
+}
+
+function resetAll(){
+  if(!confirm('Reset everything to defaults? This cannot be undone.')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  location.reload();
+}
+
+// Live data object
+let DATA = loadData();
+
+// ═══════════════════════════════════════
+// APPLY DATA TO DOM
+// ═══════════════════════════════════════
+function applyDataToDOM(){
+  const id = DATA.identity;
+  // Nav
+  document.getElementById('nav-initials').textContent = id.initials;
+  document.getElementById('nav-status-text').textContent = id.status;
+  // Hero
+  const nameParts = id.name.split(' ');
+  document.getElementById('hero-first').textContent = nameParts[0]||id.name;
+  document.getElementById('hero-last').textContent = nameParts.slice(1).join(' ')||'';
+  document.getElementById('hero-role').textContent = id.role;
+  // About text
+  document.getElementById('about-big-word').textContent = id.bigtitle;
+  document.getElementById('intro-heading').textContent = id.introH;
+  document.getElementById('intro-body').textContent = id.introT;
+  document.getElementById('edu-heading').textContent = id.eduH;
+  document.getElementById('edu-body').textContent = id.eduT;
+  document.getElementById('int-heading').textContent = id.intH;
+  document.getElementById('int-body').textContent = id.intT;
+  document.getElementById('con-heading').textContent = id.conH;
+  document.getElementById('con-body').textContent = id.conT;
+  // Card
+  const av = document.getElementById('card-avatar');
+  if(id.avatar){
+    av.innerHTML = `<img src="${id.avatar}" alt="${id.initials}"/>`;
+  } else {
+    av.innerHTML = id.initials;
+  }
+  document.getElementById('card-name').textContent = id.name;
+  document.getElementById('card-role-el').textContent = id.role;
+  document.getElementById('card-status-text').textContent = id.status;
+  document.getElementById('card-location').textContent = id.location;
+  document.getElementById('card-bio').textContent = id.bio;
+  // Learning tags
+  const lt = document.getElementById('learning-tags');
+  lt.innerHTML = (id.learning||'').split(',').map((t,i)=>`<span class="card-tag${i===0?' accent':''}">${t.trim()}</span>`).filter(s=>s.includes('>')).join('');
+  // Social tags
+  const st = document.getElementById('social-tags');
+  st.innerHTML = (id.socials||[]).map(s=>{
+    const inner = s.url ? `<a href="${s.url}" target="_blank" rel="noopener">${s.label}</a>` : s.label;
+    return `<span class="card-tag">${inner}</span>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════
+// STARFIELD
+// ═══════════════════════════════════════
+(function initStars(){
+  const c=document.getElementById('stars-canvas');
+  const ctx=c.getContext('2d');
+  let W,H,stars=[];
+  function resize(){W=c.width=innerWidth;H=c.height=innerHeight;initStarData()}
+  function initStarData(){
+    stars=[];
+    for(let i=0;i<220;i++){
+      stars.push({x:Math.random()*W,y:Math.random()*H,r:Math.random()*1.4+0.2,op:Math.random(),dop:(Math.random()-0.5)*0.006,vx:(Math.random()-0.5)*0.08,vy:(Math.random()-0.5)*0.05});
+    }
+  }
+  let mx=0,my=0;
+  window.addEventListener('mousemove',e=>{mx=e.clientX/W-0.5;my=e.clientY/H-0.5});
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    const grd=ctx.createRadialGradient(W*0.3+mx*60,H*0.4+my*40,0,W*0.3+mx*60,H*0.4+my*40,W*0.45);
+    grd.addColorStop(0,'rgba(60,40,120,0.18)');grd.addColorStop(1,'transparent');
+    ctx.fillStyle=grd;ctx.fillRect(0,0,W,H);
+    for(const s of stars){
+      s.x+=s.vx+mx*0.3;s.y+=s.vy+my*0.2;
+      s.op+=s.dop;
+      if(s.op>1){s.op=1;s.dop*=-1}if(s.op<0.05){s.op=0.05;s.dop*=-1}
+      if(s.x<0)s.x=W;if(s.x>W)s.x=0;if(s.y<0)s.y=H;if(s.y>H)s.y=0;
+      ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
+      ctx.fillStyle=`rgba(255,255,255,${s.op.toFixed(2)})`;ctx.fill();
+    }
+    requestAnimationFrame(draw);
+  }
+  window.addEventListener('resize',resize);resize();draw();
+})();
+
+// ═══════════════════════════════════════
+// CURSOR
+// ═══════════════════════════════════════
+(function initCursor(){
+  const dot=document.getElementById('cursor');
+  const trail=document.getElementById('cursor-trail');
+  let tx=0,ty=0,cx=0,cy=0;
+  document.addEventListener('mousemove',e=>{cx=e.clientX;cy=e.clientY;dot.style.left=cx+'px';dot.style.top=cy+'px'});
+  function updateTrail(){tx+=(cx-tx)*0.15;ty+=(cy-ty)*0.15;trail.style.left=tx+'px';trail.style.top=ty+'px';requestAnimationFrame(updateTrail)}
+  updateTrail();
+  document.querySelectorAll('a,button,.door-card,.nav-link,.back-btn,.project-card,.skill-bubble,.overlay-close').forEach(el=>{
+    el.addEventListener('mouseenter',()=>dot.classList.add('hovering'));
+    el.addEventListener('mouseleave',()=>dot.classList.remove('hovering'));
+  });
+})();
+
+// ═══════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════
+let currentRoom=null;
+function showRoom(id){
+  document.getElementById('scene-home').classList.add('out');
+  document.querySelectorAll('.room').forEach(r=>r.classList.remove('active'));
+  document.querySelectorAll('.nav-link').forEach(l=>l.classList.remove('active'));
+  setTimeout(()=>{
+    const room=document.getElementById('room-'+id);
+    if(room){room.classList.add('active');currentRoom=id;}
+    document.getElementById('back-btn').classList.add('show');
+    document.querySelectorAll('.nav-link').forEach(l=>{if(l.textContent.toLowerCase().includes(id.slice(0,4)))l.classList.add('active')});
+    if(id==='about')initAboutScroll();
+    if(id==='studio')initSkillBars();
+  },200);
+}
+function goHome(){
+  document.querySelectorAll('.room').forEach(r=>r.classList.remove('active'));
+  document.getElementById('scene-home').classList.remove('out');
+  document.getElementById('back-btn').classList.remove('show');
+  document.querySelectorAll('.nav-link').forEach(l=>l.classList.remove('active'));
+  currentRoom=null;
+}
+
+// ═══════════════════════════════════════
+// ABOUT — tilt card
+// ═══════════════════════════════════════
+function initAboutScroll(){
+  const blocks=document.querySelectorAll('.about-section-block');
+  setTimeout(()=>blocks.forEach(b=>b.classList.add('visible')),100);
+}
+const aboutRight=document.getElementById('about-right');
+const cardWrap=document.getElementById('card-wrap');
+if(aboutRight&&cardWrap){
+  aboutRight.addEventListener('mousemove',e=>{
+    const rect=aboutRight.getBoundingClientRect();
+    const x=(e.clientX-rect.left)/rect.width-0.5;
+    const y=(e.clientY-rect.top)/rect.height-0.5;
+    cardWrap.style.transform=`perspective(900px) rotateY(${x*18}deg) rotateX(${-y*14}deg) translateZ(20px)`;
+  });
+  aboutRight.addEventListener('mouseleave',()=>{cardWrap.style.transform='perspective(900px) rotateY(0deg) rotateX(0deg) translateZ(0)'});
+}
+
+// ═══════════════════════════════════════
+// GALLERY
+// ═══════════════════════════════════════
+function buildGallery(){
+  const track=document.getElementById('projects-track');
+  track.innerHTML='';
+  document.getElementById('proj-count').textContent=`0${DATA.projects.length} Projects`;
+  DATA.projects.forEach((p,i)=>{
+    const card=document.createElement('div');
+    card.className='project-card';
+    const thumbContent = p.image
+      ? `<img class="project-thumb-img" src="${p.image}" alt="${p.name}"/>`
+      : `<div class="project-thumb-bg" style="background:${p.bg}"></div><div class="project-emoji">${p.emoji}</div>`;
+    card.innerHTML=`
+      <div class="project-card-inner">
+        <div class="project-thumb">
+          ${thumbContent}
+          <div class="project-num">0${i+1}</div>
+        </div>
+        <div class="project-info">
+          <div class="project-category">${p.category}</div>
+          <div class="project-name">${p.name}</div>
+          <div class="project-desc">${p.desc}</div>
+          <div class="project-tags">${(p.tech||[]).map(t=>`<span class="ptag">${t}</span>`).join('')}</div>
+        </div>
+      </div>`;
+    card.addEventListener('click',()=>openProject(p));
+    track.appendChild(card);
+  });
+  let isDown=false,startX,scrollLeft,didDrag=false;
+  track.addEventListener('mousedown',e=>{if(e.button!==0)return;isDown=true;didDrag=false;startX=e.pageX-track.offsetLeft;scrollLeft=track.scrollLeft;track.style.cursor='grabbing';track.style.userSelect='none'});
+  track.addEventListener('mouseleave',()=>{isDown=false;track.style.cursor='grab';track.style.userSelect=''});
+  track.addEventListener('mouseup',e=>{if(e.button!==0)return;isDown=false;track.style.cursor='grab';track.style.userSelect=''});
+  track.addEventListener('mousemove',e=>{if(!isDown||e.button!==0)return;const x=e.pageX-track.offsetLeft;const walk=(x-startX)*1.8;if(Math.abs(walk)>4)didDrag=true;track.scrollLeft=scrollLeft-walk;});
+  track.addEventListener('click',e=>{if(didDrag){e.stopPropagation();didDrag=false;}},true);
+  track.style.cursor='grab';
+}
+
+function openProject(p){
+  document.getElementById('ov-tag').textContent=p.category;
+  document.getElementById('ov-title').textContent=p.name;
+  document.getElementById('ov-desc').textContent=p.long;
+  document.getElementById('ov-year').textContent=p.year;
+  document.getElementById('ov-type').textContent=p.type;
+  document.getElementById('ov-status').textContent=p.status;
+  document.getElementById('ov-role').textContent=p.role;
+  document.getElementById('ov-tech').innerHTML=(p.tech||[]).map(t=>`<span class="card-tag">${t}</span>`).join('');
+  document.getElementById('ov-vbg').style.background=p.bg;
+  // Links
+  const linksEl = document.getElementById('ov-links');
+  linksEl.innerHTML = p.link ? `<a class="overlay-link-btn" href="${p.link}" target="_blank" rel="noopener">↗ View Project</a>` : '';
+  // Image or emoji
+  const ovImg = document.getElementById('ov-img');
+  const ovEmoji = document.getElementById('ov-emoji');
+  const ovVisual = document.getElementById('ov-visual');
+  if(p.image){
+    ovImg.src=p.image;
+    ovImg.style.display='block';
+    ovEmoji.style.display='none';
+  } else {
+    ovImg.style.display='none';
+    ovEmoji.style.display='block';
+    ovEmoji.textContent=p.emoji;
+  }
+  const ov=document.getElementById('project-overlay');
+  ov.style.display='grid';
+  requestAnimationFrame(()=>{ov.style.opacity='1'});
+}
+function closeOverlay(){
+  const ov=document.getElementById('project-overlay');
+  ov.style.opacity='0';
+  setTimeout(()=>{ov.style.display='none'},500);
+}
+
+// Overlay parallax
+document.getElementById('project-overlay').addEventListener('mousemove',e=>{
+  const right=document.getElementById('ov-visual');
+  const rect=document.getElementById('project-overlay').getBoundingClientRect();
+  const x=(e.clientX/rect.width-0.5)*14;const y=(e.clientY/rect.height-0.5)*10;
+  right.style.transform=`perspective(800px) rotateY(${x}deg) rotateX(${-y}deg)`;
+  right.style.transition='transform 0.05s';
+});
+
+// ═══════════════════════════════════════
+// STUDIO
+// ═══════════════════════════════════════
+function buildSkills(){
+  const grid=document.getElementById('skills-grid');
+  grid.innerHTML='';
+  DATA.skills.forEach(s=>{
+    const el=document.createElement('div');
+    el.className='skill-bubble';
+    el.style.setProperty('--grad-color',s.color);
+    el.innerHTML=`<span class="skill-icon">${s.icon}</span><div class="skill-name">${s.name}</div><div class="skill-level">${s.level}</div><div class="skill-bar"><div class="skill-fill" data-pct="${s.pct}"></div></div>`;
+    grid.appendChild(el);
+  });
+}
+function initSkillBars(){
+  setTimeout(()=>{
+    document.querySelectorAll('.skill-fill').forEach((bar,i)=>{setTimeout(()=>{bar.style.width=bar.dataset.pct+'%'},i*60)});
+  },200);
+}
+
+// ═══════════════════════════════════════
+// EDIT MODE
+// ═══════════════════════════════════════
+let editModeOn=false;
+
+function toggleEditMode(){
+  editModeOn=!editModeOn;
+  document.getElementById('edit-mode-btn').classList.toggle('on',editModeOn);
+  document.getElementById('edit-panel').classList.toggle('open',editModeOn);
+  document.getElementById('edit-btn-label').textContent=editModeOn?'Editing…':'Edit Mode';
+  if(editModeOn) populatePanel();
+}
+
+// ─── AVATAR UPLOAD ───
+function handleAvatarUpload(e){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const b64=ev.target.result;
+    DATA.identity.avatar=b64;
+    // Show preview
+    const prev=document.getElementById('avatar-preview');
+    prev.src=b64;prev.style.display='block';
+    document.getElementById('avatar-upload-zone').querySelector('span:last-child').textContent='Photo selected ✓';
+    // Apply to card immediately
+    document.getElementById('card-avatar').innerHTML=`<img src="${b64}" alt="avatar"/>`;
+  };
+  reader.readAsDataURL(file);
+}
+
+// ─── PROJECT IMAGE UPLOAD ───
+function handleProjectImageUpload(e, idx){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    DATA.projects[idx].image=ev.target.result;
+    const preview=document.getElementById(`proj-img-preview-${idx}`);
+    if(preview){preview.src=ev.target.result;preview.style.display='block';}
+    e.target.closest('.ep-img-upload').querySelector('span:last-child').textContent='Image selected ✓';
+  };
+  reader.readAsDataURL(file);
+}
+
+// ─── POPULATE PANEL ───
+function populatePanel(){
+  const id=DATA.identity;
+  const set=(elId,val)=>{const el=document.getElementById(elId);if(el)el.value=val||''};
+  set('ep-initials',id.initials);set('ep-name',id.name);set('ep-role',id.role);
+  set('ep-status',id.status);set('ep-location',id.location);set('ep-bigtitle',id.bigtitle);
+  set('ep-intro-h',id.introH);set('ep-intro-t',id.introT);
+  set('ep-edu-h',id.eduH);set('ep-edu-t',id.eduT);
+  set('ep-int-h',id.intH);set('ep-int-t',id.intT);
+  set('ep-con-h',id.conH);set('ep-con-t',id.conT);
+  set('ep-learning',id.learning);set('ep-bio',id.bio);set('ep-funfact',id.funfact);
+
+  // Avatar preview
+  if(id.avatar){
+    const prev=document.getElementById('avatar-preview');
+    prev.src=id.avatar;prev.style.display='block';
+    document.getElementById('avatar-upload-zone').querySelector('span:last-child').textContent='Photo selected ✓';
+  }
+
+  // Social links
+  renderSocialLinks();
+  // Projects
+  renderProjectsEdit();
+}
+
+// ─── SOCIAL LINKS ───
+function renderSocialLinks(){
+  const list=document.getElementById('social-links-list');
+  list.innerHTML='';
+  (DATA.identity.socials||[]).forEach((s,i)=>{
+    const row=document.createElement('div');
+    row.className='ep-link-row';
+    row.innerHTML=`
+      <input class="ep-input" placeholder="Label (e.g. GitHub)" value="${s.label||''}" oninput="DATA.identity.socials[${i}].label=this.value" style="max-width:110px"/>
+      <input class="ep-input" placeholder="URL (https://...)" value="${s.url||''}" oninput="DATA.identity.socials[${i}].url=this.value"/>
+      <button class="ep-link-remove" onclick="removeSocialLink(${i})">✕</button>`;
+    list.appendChild(row);
+  });
+}
+function addSocialLink(){
+  if(!DATA.identity.socials)DATA.identity.socials=[];
+  DATA.identity.socials.push({label:'',url:''});
+  renderSocialLinks();
+}
+function removeSocialLink(i){
+  DATA.identity.socials.splice(i,1);
+  renderSocialLinks();
+}
+
+// ─── PROJECTS EDIT ───
+function renderProjectsEdit(){
+  const list=document.getElementById('projects-edit-list');
+  list.innerHTML='';
+  DATA.projects.forEach((p,i)=>{
+    const row=document.createElement('div');
+    row.className='ep-proj-row';
+    row.innerHTML=`
+      <div class="ep-proj-row-header" onclick="toggleProjRow(${i})">
+        <span class="ep-proj-row-emoji">${p.emoji}</span>
+        <span class="ep-proj-row-name">${p.name}</span>
+        <span class="ep-proj-row-chevron">▶</span>
+      </div>
+      <div class="ep-proj-fields">
+        <div class="ep-field"><label class="ep-label">Emoji</label><input class="ep-input" value="${p.emoji}" oninput="DATA.projects[${i}].emoji=this.value;this.closest('.ep-proj-row').querySelector('.ep-proj-row-emoji').textContent=this.value"/></div>
+        <div class="ep-field"><label class="ep-label">Category</label><input class="ep-input" value="${p.category}" oninput="DATA.projects[${i}].category=this.value"/></div>
+        <div class="ep-field"><label class="ep-label">Project Name</label><input class="ep-input" value="${p.name}" oninput="DATA.projects[${i}].name=this.value;this.closest('.ep-proj-row').querySelector('.ep-proj-row-name').textContent=this.value"/></div>
+        <div class="ep-field"><label class="ep-label">Short Description</label><input class="ep-input" value="${p.desc}" oninput="DATA.projects[${i}].desc=this.value"/></div>
+        <div class="ep-field"><label class="ep-label">Long Description</label><textarea class="ep-input textarea" oninput="DATA.projects[${i}].long=this.value">${p.long}</textarea></div>
+        <div class="ep-field"><label class="ep-label">Year</label><input class="ep-input" value="${p.year}" oninput="DATA.projects[${i}].year=this.value"/></div>
+        <div class="ep-field"><label class="ep-label">Type</label><input class="ep-input" value="${p.type}" oninput="DATA.projects[${i}].type=this.value"/></div>
+        <div class="ep-field"><label class="ep-label">Status</label><input class="ep-input" value="${p.status}" oninput="DATA.projects[${i}].status=this.value"/></div>
+        <div class="ep-field"><label class="ep-label">Your Role</label><input class="ep-input" value="${p.role}" oninput="DATA.projects[${i}].role=this.value"/></div>
+        <div class="ep-field"><label class="ep-label">Tech Stack (comma-separated)</label><input class="ep-input" value="${(p.tech||[]).join(', ')}" oninput="DATA.projects[${i}].tech=this.value.split(',').map(s=>s.trim()).filter(Boolean)"/></div>
+        <div class="ep-field"><label class="ep-label">Project Link (URL)</label><input class="ep-input" placeholder="https://..." value="${p.link||''}" oninput="DATA.projects[${i}].link=this.value"/></div>
+        <div class="ep-field">
+          <label class="ep-label">Project Image</label>
+          <div class="ep-img-upload" id="proj-upload-${i}">
+            <input type="file" accept="image/*" onchange="handleProjectImageUpload(event,${i})"/>
+            <span class="upload-icon">🖼️</span>
+            <span>${p.image ? 'Image set ✓' : 'Click to upload image'}</span>
+          </div>
+          <img class="ep-img-preview" id="proj-img-preview-${i}" src="${p.image||''}" style="display:${p.image?'block':'none'}"/>
+        </div>
+      </div>`;
+    list.appendChild(row);
+  });
+}
+
+function toggleProjRow(i){
+  const rows=document.querySelectorAll('.ep-proj-row');
+  rows[i].classList.toggle('open');
+}
+
+// ─── APPLY & SAVE ───
+function applyAndSave(){
+  const val=id=>(document.getElementById(id)||{}).value||'';
+  DATA.identity.initials = val('ep-initials')||DATA.identity.initials;
+  DATA.identity.name     = val('ep-name')||DATA.identity.name;
+  DATA.identity.role     = val('ep-role')||DATA.identity.role;
+  DATA.identity.status   = val('ep-status')||DATA.identity.status;
+  DATA.identity.location = val('ep-location')||DATA.identity.location;
+  DATA.identity.bigtitle = val('ep-bigtitle')||DATA.identity.bigtitle;
+  DATA.identity.introH   = val('ep-intro-h')||DATA.identity.introH;
+  DATA.identity.introT   = val('ep-intro-t')||DATA.identity.introT;
+  DATA.identity.eduH     = val('ep-edu-h')||DATA.identity.eduH;
+  DATA.identity.eduT     = val('ep-edu-t')||DATA.identity.eduT;
+  DATA.identity.intH     = val('ep-int-h')||DATA.identity.intH;
+  DATA.identity.intT     = val('ep-int-t')||DATA.identity.intT;
+  DATA.identity.conH     = val('ep-con-h')||DATA.identity.conH;
+  DATA.identity.conT     = val('ep-con-t')||DATA.identity.conT;
+  DATA.identity.learning = val('ep-learning')||DATA.identity.learning;
+  DATA.identity.bio      = val('ep-bio')||DATA.identity.bio;
+  DATA.identity.funfact  = val('ep-funfact')||DATA.identity.funfact;
+
+  saveData(DATA);
+  applyDataToDOM();
+  buildGallery();
+  buildSkills();
+
+  const toast=document.getElementById('ep-toast');
+  toast.classList.add('show');
+  setTimeout(()=>toast.classList.remove('show'),2500);
+}
+
+// ─── KEYBOARD ───
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){closeOverlay();if(editModeOn)toggleEditMode();}
+  if(e.key==='ArrowRight'&&currentRoom==='gallery'){document.getElementById('projects-track').scrollLeft+=360}
+  if(e.key==='ArrowLeft'&&currentRoom==='gallery'){document.getElementById('projects-track').scrollLeft-=360}
+});
+
+// ═══════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════
+applyDataToDOM();
+buildGallery();
+buildSkills();
+</script>
+</body>
+</html>
